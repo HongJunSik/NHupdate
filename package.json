@@ -1,0 +1,17 @@
+{
+  "name": "nhupdate",
+  "version": "1.0.0",
+  "description": "내원현황표 실시간 업데이트 도구",
+  "main": "index.html",
+  "scripts": {
+    "start": "http-server -p 3000"
+  },
+  "dependencies": {
+    "http-server": "^14.1.1",
+    "jsdom": "^29.1.1",
+    "xlsx": "^0.18.5"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

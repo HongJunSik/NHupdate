@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NHupdate - 내원현황표 간편 업데이터</title>
+    <meta name="description" content="예약 조회 엑셀 파일을 업로드하여 중복 및 해외 예약을 제거하고 내원현황표 구글 시트 형식에 맞게 클립보드 복사할 수 있는 도구입니다.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- SheetJS Library for parsing Excel in browser -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Control Panel -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <span class="logo-icon">⚡</span>
+                <div class="logo-text">
+                    <h1>NHupdate</h1>
+                    <p>내원현황표 복사 도구</p>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-btn active" id="btn-dashboard">
+                    <span class="nav-icon">📋</span> 복사 대시보드
+                </button>
+                <button class="nav-btn" id="btn-mapping">
+                    <span class="nav-icon">🗺️</span> 지정 매핑 규칙
+                </button>
+            </nav>
+            
+            <div class="status-card">
+                <h3>작업 방식</h3>
+                <div class="status-indicator copy-paste">
+                    <span class="status-dot"></span>
+                    <span class="status-text">수동 복사 & 붙여넣기</span>
+                </div>
+                <div class="sheet-info-box">
+                    <p class="sheet-name">대상: 내원현황표</p>
+                    <a href="https://docs.google.com/spreadsheets/d/1bCMgS1BBD13PdIrswq4O3i25K680o4CTMDfqpFO_UNQ/edit" target="_blank" class="sheet-link">구글 시트 바로가기 ↗</a>
+                </div>
+            </div>
+            
+            <footer class="sidebar-footer">
+                <p>© 2026 Antigravity Studio</p>
+            </footer>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="main-header">
+                <div class="header-title">
+                    <h2 id="page-title">복사 대시보드</h2>
+                    <p id="page-desc">지정해주신 12가지 규칙에 따라 예약조회 데이터를 정제하고 29열 내원현황표 양식으로 변환합니다.</p>
+                </div>
+                <div class="header-actions">
+                    <span class="date-badge" id="current-date">2026. 06. 14</span>
+                </div>
+            </header>
+
+            <!-- Dashboard Page -->
+            <section class="page-section active" id="section-dashboard">
+                <!-- Dropzone Area -->
+                <div class="upload-container">
+                    <div class="drop-zone" id="drop-zone">
+                        <input type="file" id="file-input" accept=".xlsx, .xls" style="display: none;">
+                        <div class="drop-zone-content">
+                            <div class="upload-icon-circle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-upload-cloud"><polyline points="16 16 12 12 8 16"></polyline><line x1="12" y1="12" x2="12" y2="21"></line><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path><polyline points="16 16 12 12 8 16"></polyline></svg>
+                            </div>
+                            <h3>예약조회 엑셀 파일 드래그 & 드롭</h3>
+                            <p>또는 이곳을 클릭하여 파일을 선택하세요 (.xlsx 형식)</p>
+                            <span class="file-format-info">예약조회.xlsx</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="summary-cards" id="summary-section" style="display: none;">
+                    <div class="card kpi-card">
+                        <div class="kpi-icon orange">📂</div>
+                        <div class="kpi-details">
+                            <span class="kpi-title">파일명</span>
+                            <h3 class="kpi-value" id="loaded-file-name">-</h3>
+                        </div>
+                    </div>
+                    <div class="card kpi-card">
+                        <div class="kpi-icon blue">👥</div>
+                        <div class="kpi-details">
+                            <span class="kpi-title">원본 예약 건수</span>
+                            <h3 class="kpi-value" id="original-row-count">0</h3>
+                        </div>
+                    </div>
+                    <div class="card kpi-card">
+                        <div class="kpi-icon green">✨</div>
+                        <div class="kpi-details">
+                            <span class="kpi-title">최종 예약 건수</span>
+                            <h3 class="kpi-value" id="cleaned-row-count">0</h3>
+                        </div>
+                    </div>
+                    <div class="card kpi-card">
+                        <div class="kpi-icon red">✂️</div>
+                        <div class="kpi-details">
+                            <span class="kpi-title">제외된 건수 (중복 + 해외)</span>
+                            <h3 class="kpi-value" id="duplicate-removed-count">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Banner (Hidden by default) -->
+                <div class="action-banner" id="action-banner" style="display: none; margin-top: 20px;">
+                    <div class="action-banner-content">
+                        <div class="action-banner-text">
+                            <h3>✨ 정제 및 29열 변환 완료</h3>
+                            <p>지정한 12가지 규칙을 모두 적용해 내원현황표 규격으로 포맷팅을 끝냈습니다. 아래 버튼을 눌러 바로 구글 시트에 붙여넣으세요!</p>
+                        </div>
+                        <button class="btn btn-lg-glow" id="btn-copy-clipboard-banner">
+                            📋 내원현황표 형식으로 한 번에 복사하기 (Ctrl+V용)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Data Panel (Hidden by default) -->
+                <div class="data-panel" id="data-panel" style="display: none;">
+                    <div class="panel-header">
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" data-tab="tab-cleaned">✨ 내원현황표 복사용 데이터 (29열)</button>
+                            <button class="tab-btn" data-tab="tab-duplicates">✂️ 중복/해외 제외 로그 (<span id="dupe-tab-count">0</span>)</button>
+                            <button class="tab-btn" data-tab="tab-original">📂 원본 전체 데이터</button>
+                        </div>
+                        
+                        <div class="panel-actions">
+                            <button class="btn btn-outline" id="btn-download-cleaned">
+                                📥 정제 엑셀 다운로드
+                            </button>
+                            <button class="btn btn-primary" id="btn-copy-clipboard">
+                                📋 클립보드에 전체 복사
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="panel-body">
+                        <!-- Cleaned Tab -->
+                        <div class="tab-content active" id="tab-cleaned">
+                            <div class="table-scroll">
+                                <table class="data-table" id="table-cleaned">
+                                    <thead>
+                                        <!-- Will be dynamically populated -->
+                                    </thead>
+                                    <tbody>
+                                        <!-- Will be dynamically populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Duplicates Tab -->
+                        <div class="tab-content" id="tab-duplicates">
+                            <div class="dupe-log-list" id="dupe-log-list">
+                                <!-- Will be dynamically populated -->
+                            </div>
+                        </div>
+
+                        <!-- Original Tab -->
+                        <div class="tab-content" id="tab-original">
+                            <div class="table-scroll">
+                                <table class="data-table" id="table-original">
+                                    <thead>
+                                        <!-- Will be dynamically populated -->
+                                    </thead>
+                                    <tbody>
+                                        <!-- Will be dynamically populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Mapping Page -->
+            <section class="page-section" id="section-mapping">
+                <div class="settings-card card mapping-card">
+                    <h2>🗺️ 설정된 12가지 예약 정제 및 매핑 규칙</h2>
+                    <p class="section-subtitle">전달해주신 규칙에 맞춰서 데이터를 정제하고 구글 시트 포맷으로 맵핑하는 규칙 명세입니다.</p>
+                    
+                    <div class="copy-tips-box">
+                        <h3>💡 구글 시트 복사/붙여넣기 팁</h3>
+                        <ul>
+                            <li><strong>[클립보드에 전체 복사]</strong> 버튼을 누르면 정제 완료된 데이터가 구글 스프레드 시트 규격인 29열 크기의 탭(TSV) 문자열로 복사됩니다.</li>
+                            <li>구글 내원현황표 시트에서 예약 날짜(A열) 셀을 클릭하고 <strong>Ctrl + V</strong>를 누르면 29개 열이 완벽히 정렬되어 붙여넣어집니다.</li>
+                            <li>메모에 줄바꿈이 있는 경우도 구글 시트에서 여러 셀로 쪼개지지 않고 한 셀에 모이도록 데이터가 이스케이프 처리되어 안전하게 복사됩니다.</li>
+                        </ul>
+                    </div>
+
+                    <div class="mapping-table-container">
+                        <table class="mapping-table">
+                            <thead>
+                                <tr>
+                                    <th>열 번호</th>
+                                    <th>내원현황표 열 (구글 시트)</th>
+                                    <th>적용된 규칙 / 엑셀 원본 항목</th>
+                                    <th>상세 가공 방식</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>-</td>
+                                    <td><strong>중복 제거 (규칙 1)</strong></td>
+                                    <td><code>고객번호</code> 비교</td>
+                                    <td>중복된 고객번호가 존재할 경우 첫 번째(1행) 예약만 남기고 제외</td>
+                                </tr>
+                                <tr>
+                                    <td>-</td>
+                                    <td><strong>해외팀 제외 (규칙 1-2)</strong></td>
+                                    <td><code>고객메모</code> 필터링</td>
+                                    <td>고객메모에 '일본팀', '대만팀', '해외' 문구가 포함된 예약 행은 전면 삭제</td>
+                                </tr>
+                                <tr>
+                                    <td>-</td>
+                                    <td><strong>예약참고 행 제외 (규칙 1-3)</strong></td>
+                                    <td><code>고객명</code> 필터링</td>
+                                    <td>고객명에 '예약', '마감' 등 예약 시 참고용 문구가 들어가 있으면 행 삭제 (제외 사유: '예약 시 참고용')</td>
+                                </tr>
+                                <tr>
+                                    <td>1</td>
+                                    <td><strong>예약 날짜 (규칙 2)</strong></td>
+                                    <td><code>예약일</code> 가공</td>
+                                    <td><code>20260701</code> → <code>7월 1일</code> 형식으로 월/일 단위를 맞춰 변환</td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td><strong>확인자 (규칙 3)</strong></td>
+                                    <td><code>'홍준식'</code> 고정</td>
+                                    <td>확인자 필드를 항상 '홍준식'으로 채워 넣음</td>
+                                </tr>
+                                <tr>
+                                    <td>3</td>
+                                    <td><strong>이름 (규칙 4)</strong></td>
+                                    <td><code>고객명</code></td>
+                                    <td>엑셀 파일의 '고객명' 데이터 그대로 매칭</td>
+                                </tr>
+                                <tr>
+                                    <td>4</td>
+                                    <td><strong>내원 목적 (규칙 5)</strong></td>
+                                    <td><code>진료실</code></td>
+                                    <td>예약 엑셀의 '진료실' 정보 기입 (상담, J1, L1 등)</td>
+                                </tr>
+                                <tr>
+                                    <td>5</td>
+                                    <td><strong>내원경로 (규칙 6)</strong></td>
+                                    <td><code>고객메모</code></td>
+                                    <td>엑셀의 '고객메모' 데이터 그대로 매칭</td>
+                                </tr>
+                                <tr>
+                                    <td>6</td>
+                                    <td><strong>담당의사 (규칙 7)</strong></td>
+                                    <td><code>예약상태</code></td>
+                                    <td>엑셀의 '예약상태' 데이터 그대로 매칭 (예: 상담, 대기, 경과예약 등)</td>
+                                </tr>
+                                <tr>
+                                    <td>7</td>
+                                    <td><strong>상담실장 (규칙 8)</strong></td>
+                                    <td><code>(비워둠)</code></td>
+                                    <td>상담실 관련 데이터는 완전히 빈 칸으로 비워둠</td>
+                                </tr>
+                                <tr>
+                                    <td>8</td>
+                                    <td><strong>초/재진 (규칙 9)</strong></td>
+                                    <td><code>고객구분</code></td>
+                                    <td>엑셀의 '고객구분' 데이터 사용 (신환 / 구환)</td>
+                                </tr>
+                                <tr>
+                                    <td>9</td>
+                                    <td><strong>성별 (규칙 10)</strong></td>
+                                    <td><code>성별</code></td>
+                                    <td>엑셀에 '성별' 열이 있으면 우선 사용하고, 없을 경우 '예약메모'에서 F/M 자동 추출</td>
+                                </tr>
+                                <tr>
+                                    <td>10</td>
+                                    <td><strong>나이 (규칙 10)</strong></td>
+                                    <td><code>나이</code></td>
+                                    <td>엑셀에 '나이' 열이 있으면 우선 사용하고, 없을 경우 '예약메모'의 생년월일 기준 나이 계산</td>
+                                </tr>
+                                <tr>
+                                    <td>11</td>
+                                    <td><strong>예약시간 (규칙 10)</strong></td>
+                                    <td><code>예약시간</code></td>
+                                    <td><code>0930</code> → <code>09:30</code> 형태로 변환</td>
+                                </tr>
+                                <tr>
+                                    <td>12~20</td>
+                                    <td><strong>내원시간 ~ 상담내용 (규칙 11)</strong></td>
+                                    <td><code>(비워둠)</code></td>
+                                    <td>L열부터 T열까지 총 9개 열은 완전히 빈 칸으로 비워둠</td>
+                                </tr>
+                                <tr>
+                                    <td>21</td>
+                                    <td><strong>전달사항 (규칙 12)</strong></td>
+                                    <td><code>예약메모</code></td>
+                                    <td>엑셀의 '예약메모' 데이터 그대로 매칭</td>
+                                </tr>
+                                <tr>
+                                    <td>22</td>
+                                    <td><strong>특이사항</strong></td>
+                                    <td><code>(비워둠)</code></td>
+                                    <td>특이사항 칸은 완전히 빈 칸으로 비워둠</td>
+                                </tr>
+                                <tr>
+                                    <td>23~24</td>
+                                    <td><strong>과세 / 비과세</strong></td>
+                                    <td><code>(비워둠)</code></td>
+                                    <td>과세/비과세 칸은 서식을 유지하기 위해 빈 칸으로 비워둠</td>
+                                </tr>
+                                <tr>
+                                    <td>25~29</td>
+                                    <td><strong>누적매출 ~ 주차별</strong></td>
+                                    <td><code>(비워둠)</code></td>
+                                    <td>누적매출부터 주차별까지 나머지 5개 열은 모두 비워둠</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">메시지</span>
+    </div>
+
+    <!-- App Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
