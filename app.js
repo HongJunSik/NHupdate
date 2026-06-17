@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             // 규칙 1-3: 고객명에 '예약' 또는 '마감'이 들어가면 제외(삭제)
-            if (custName.includes('예약') || custName.includes('마감')) {
+            if (custName.includes('예약') || custName.includes('마감') || custName.includes('업체') || custName.includes('미팅')) {
                 exclusions.push({
                     type: 'reference',
                     customerNumber: custNum,
